@@ -2,11 +2,14 @@ name: CI
 
 on:
   push:
-    branches: ["**"]
+    branches: ["main"]
   pull_request:
 
+env:
+  REGISTRY_IMAGE: nnennarg/flask-app
+
 jobs:
-  build:
+  test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -22,6 +25,16 @@ jobs:
       - name: Lint
         run: flake8 app.py --max-line-length=100
 
+  build:
+    runs-on: ubuntu-latest
+    needs: test
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Get short SHA
+        id: sha
+        run: echo "short_sha=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+
       - name: Log in to Docker Hub
         uses: docker/login-action@v3
         with:
@@ -32,10 +45,21 @@ jobs:
         uses: docker/build-push-action@v5
         with:
           push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/flask-app:${{ github.sha }}
+          tags: |
+            ${{ env.REGISTRY_IMAGE }}:${{ steps.sha.outputs.short_sha }}
+            ${{ env.REGISTRY_IMAGE }}:latest
 
-      - name: Set up Helm
-        uses: azure/setup-helm@v4
-
-      - name: Helm lint
-        run: helm lint ./chart
+  scan:
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Scan image with Trivy
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ env.REGISTRY_IMAGE }}:${{ needs.build.outputs.short_sha }}
+          severity: HIGH,CRITICAL
+          exit-code: "0"
+          format: table
+        env:
+          TRIVY_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
+          TRIVY_PASSWORD: ${{ secrets.DOCKERHUB_TOKEN }}

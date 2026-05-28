@@ -13,11 +13,9 @@ spec:
     metadata:
       labels:
         {{- include "flask-app.labels" . | nindent 8 }}
-      annotations:
-        prometheus.io/scrape: "true"
-        prometheus.io/port: "5000"
-        prometheus.io/path: "/metrics"
+
     spec:
+      serviceAccountName: {{ include "flask-app.serviceAccountName" . }}
       securityContext:
         runAsNonRoot: {{ .Values.securityContext.runAsNonRoot }}
         runAsUser: {{ .Values.securityContext.runAsUser }}
@@ -46,3 +44,9 @@ spec:
               port: 5000
             initialDelaySeconds: {{ .Values.probes.readiness.initialDelaySeconds }}
             periodSeconds: {{ .Values.probes.readiness.periodSeconds }}
+          volumeMounts:
+            - mountPath: /tmp
+              name: tmp-dir
+      volumes:
+        - name: tmp-dir
+          emptyDir: {}

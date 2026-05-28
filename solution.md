@@ -155,24 +155,23 @@ Add these in your repository under Settings → Secrets → Actions:
 
 ## Observability
 
-### Metrics
-`prometheus_flask_exporter` automatically exposes a `/metrics` endpoint on every pod. Pods are annotated so Prometheus scrapes them without any additional configuration:
-
-```yaml
-annotations:
-  prometheus.io/scrape: "true"
-  prometheus.io/port: "5000"
-  prometheus.io/path: "/metrics"
-```
-
-### Logs
-FluentBit runs as a DaemonSet and collects stdout logs from every pod, forwarding them to Loki. Logs are queryable in Grafana using LogQL.
+Basic observability is covered by three things:
 
 ### Health Probes
-Both liveness and readiness probes are configured in the Helm chart:
+Liveness and readiness probes are wired into the Helm chart:
 
 - `/health` — liveness probe, tells Kubernetes if the pod should be restarted
 - `/ready` — readiness probe, tells Kubernetes if the pod should receive traffic
+
+### Logs
+The app logs to stdout. Kubernetes collects this automatically and it is accessible via `kubectl logs`. In production this would be shipped to a log aggregation system such as Loki via FluentBit.
+
+### Metrics
+`prometheus_flask_exporter` exposes a `/metrics` endpoint on every pod. Verified working:
+```bash
+curl http://localhost:8080/metrics
+```
+In production this would be scraped by Prometheus via a ServiceMonitor and visualised in Grafana.
 
 ---
 
@@ -201,3 +200,47 @@ Both liveness and readiness probes are configured in the Helm chart:
 - Pin the base Docker image to a specific digest rather than a floating tag for reproducible builds
 - Add image vulnerability scanning (Trivy) to the CI pipeline
 - Store Grafana password and any other secrets in a proper secrets manager
+
+---
+
+## Troubleshooting
+
+### CrashLoopBackOff — No usable temporary directory
+
+**Error**
+```
+FileNotFoundError: [Errno 2] No usable temporary directory found in ['/tmp', '/var/tmp', '/usr/tmp', '/app']
+```
+
+**Cause:** `readOnlyRootFilesystem: true` blocks Python and gunicorn from writing temp files.
+
+**Troubleshoot:** `kubectl logs <pod-name>`
+
+**Solution:** Mount an `emptyDir` volume at `/tmp` in `deployment.yaml`.
+
+**Upgrade:**
+```bash
+helm upgrade flask-app ./chart
+```
+
+---
+
+### Grafana CrashLoopBackOff — Duplicate default datasource
+
+**Error**
+```
+Datasource provisioning error: datasource.yaml config is invalid.
+Only one datasource per organization can be marked as default
+```
+
+**Cause:** `loki-stack` auto-provisions a Loki datasource into Grafana marked as default, conflicting with the Prometheus datasource already set as default by `kube-prometheus-stack`.
+
+**Troubleshoot:** `kubectl logs <grafana-pod-name> -c grafana`
+
+**Solution:** Disable datasource auto-provisioning in `loki-values.yaml`. Add Loki explicitly as a non-default datasource in `prometheus-values.yaml` via `additionalDataSources`.
+
+**Upgrade:**
+```bash
+helm upgrade logging grafana/loki-stack -f observability/loki-values.yaml
+helm upgrade monitoring prometheus-community/kube-prometheus-stack -f observability/prometheus-values.yaml
+```

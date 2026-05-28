@@ -1,8 +1,0 @@
-loki:
-  enabled: true
-  persistence:
-    enabled: false
-fluent-bit:
-  enabled: true
-grafana:
-  enabled: false  # already deployed via kube-prometheus-stack

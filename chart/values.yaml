@@ -38,3 +38,16 @@ securityContext:
 
 networkPolicy:
   enabled: true
+
+serviceAccount:
+  create: true
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 80
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
