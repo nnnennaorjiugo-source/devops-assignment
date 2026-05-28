@@ -20,10 +20,10 @@ jobs:
           python-version: "3.12"
 
       - name: Install dependencies
-        run: pip install -r requirements.txt flake8
+        run: pip install -r requirements.txt
 
-      - name: Lint
-        run: flake8 app.py --max-line-length=100
+      - name: Run tests
+        run: pytest
 
   build:
     runs-on: ubuntu-latest
