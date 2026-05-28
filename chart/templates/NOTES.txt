@@ -1,0 +1,11 @@
+Flask app deployed successfully!
+
+To access the application, run:
+
+  kubectl port-forward svc/{{ .Release.Name }}-flask-app 8080:80
+
+Then open http://localhost:8080 in your browser.
+
+To check pod status:
+
+  kubectl get pods -l app.kubernetes.io/name=flask-app

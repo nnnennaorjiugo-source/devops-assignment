@@ -1,0 +1,7 @@
+grafana:
+  enabled: true
+  adminPassword: admin
+prometheus:
+  prometheusSpec:
+    podMonitorSelectorNilUsesHelmValues: false
+    serviceMonitorSelectorNilUsesHelmValues: false
